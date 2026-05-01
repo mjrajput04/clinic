@@ -10,83 +10,72 @@ import { AlertCircle, Mail, Phone, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginWithPhone, getOTP, isLoading, isAuthenticated, user } = useAuth();
+  const { login, loginWithPhone, getOTP, isAuthenticated, user } = useAuth();
 
   const [authMode, setAuthMode] = useState<'email' | 'phone'>('email');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Email mode state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Phone mode state
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
       router.push(user.role === 'admin' ? '/admin' : '/dashboard');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
-
+    if (!email || !password) { setError('Please fill in all fields'); return; }
+    setSubmitting(true);
     try {
-      const loggedInUser = await login(email, password);
-      router.push(loggedInUser.role === 'admin' ? '/admin' : '/dashboard');
+      const u = await login(email, password);
+      router.push(u.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+      setSubmitting(false);
     }
   };
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!phone) {
-      setError('Please enter your phone number');
-      return;
-    }
-
+    if (!phone) { setError('Please enter your phone number'); return; }
+    setSubmitting(true);
     try {
       await getOTP(phone);
       setOtpSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send OTP');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handlePhoneLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!phone || !otp) {
-      setError('Please fill in all fields');
-      return;
-    }
-
+    if (!phone || !otp) { setError('Please fill in all fields'); return; }
+    setSubmitting(true);
     try {
-      const loggedInUser = await loginWithPhone(phone, otp);
-      router.push(loggedInUser.role === 'admin' ? '/admin' : '/dashboard');
+      const u = await loginWithPhone(phone, otp);
+      router.push(u.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 border-border/50 bg-card/50 backdrop-blur-sm">
-        {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary mb-4">
             <span className="text-white font-bold text-lg">C</span>
@@ -95,41 +84,22 @@ export default function LoginPage() {
           <p className="text-muted-foreground text-sm">Healthcare Intelligence Platform</p>
         </div>
 
-        {/* Auth Mode Tabs */}
+        {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-muted/30 p-1 rounded-lg">
-          <button
-            onClick={() => {
-              setAuthMode('email');
-              setError('');
-              setOtpSent(false);
-            }}
-            className={`flex-1 py-2 px-4 rounded-md transition-all text-sm font-medium flex items-center justify-center gap-2 ${
-              authMode === 'email'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Mail className="h-4 w-4" />
-            Email
-          </button>
-          <button
-            onClick={() => {
-              setAuthMode('phone');
-              setError('');
-              setOtpSent(false);
-            }}
-            className={`flex-1 py-2 px-4 rounded-md transition-all text-sm font-medium flex items-center justify-center gap-2 ${
-              authMode === 'phone'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Phone className="h-4 w-4" />
-            Phone
-          </button>
+          {(['email', 'phone'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => { setAuthMode(mode); setError(''); setOtpSent(false); }}
+              className={`flex-1 py-2 px-4 rounded-md transition-all text-sm font-medium flex items-center justify-center gap-2 ${
+                authMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {mode === 'email' ? <Mail className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </button>
+          ))}
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex gap-2">
             <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
@@ -137,7 +107,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Email Login Form */}
         {authMode === 'email' && (
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
@@ -147,11 +116,10 @@ export default function LoginPage() {
                 placeholder="doctor@clinic.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={submitting}
                 className="w-full"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium mb-2">Password</label>
               <div className="relative">
@@ -160,7 +128,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
+                  disabled={submitting}
                   className="w-full pr-10"
                 />
                 <button
@@ -168,26 +136,20 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={submitting}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {submitting ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
         )}
 
-        {/* Phone Login Form */}
         {authMode === 'phone' && (
           <form onSubmit={otpSent ? handlePhoneLogin : handleSendOTP} className="space-y-4">
             <div>
@@ -197,11 +159,10 @@ export default function LoginPage() {
                 placeholder="+1-555-0101"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                disabled={isLoading || otpSent}
+                disabled={submitting || otpSent}
                 className="w-full"
               />
             </div>
-
             {otpSent && (
               <div>
                 <label className="block text-sm font-medium mb-2">OTP Code</label>
@@ -210,28 +171,20 @@ export default function LoginPage() {
                   placeholder="123456"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  disabled={isLoading}
+                  disabled={submitting}
                   className="w-full"
                   maxLength={6}
                 />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Demo OTP: 123456
-                </p>
+                <p className="text-xs text-muted-foreground mt-2">Demo OTP: 123456</p>
               </div>
             )}
-
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={submitting}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
             >
-              {isLoading
-                ? 'Processing...'
-                : otpSent
-                  ? 'Verify OTP'
-                  : 'Send OTP'}
+              {submitting ? 'Processing...' : otpSent ? 'Verify OTP' : 'Send OTP'}
             </Button>
-
             {otpSent && (
               <button
                 type="button"
@@ -244,11 +197,8 @@ export default function LoginPage() {
           </form>
         )}
 
-        {/* Demo Credentials */}
         <div className="mt-8 pt-6 border-t border-border/30">
-          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-            Demo Credentials
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Demo Credentials</p>
           <div className="space-y-2 text-xs">
             <div className="bg-muted/20 p-2 rounded">
               <p className="font-medium">Doctor:</p>
